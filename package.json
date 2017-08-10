@@ -1,0 +1,30 @@
+{
+  "name": "headlesspdf",
+  "version": "0.0.1",
+  "description": "A module for generating pdfs using node and headless chrome",
+  "main": "index.js",
+  "bin": "cmd.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erikbrinkman/headlesspdf.git"
+  },
+  "keywords": [
+    "headless"
+  ],
+  "author": "Erik Brinkman <erik.brinkman@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/erikbrinkman/headlesspdf/issues"
+  },
+  "homepage": "https://github.com/erikbrinkman/headlesspdf#readme",
+  "dependencies": {
+    "browserify": "^14.4.0",
+    "chrome-launcher": "^0.4.0",
+    "chrome-remote-interface": "^0.24.3",
+    "commander": "^2.11.0",
+    "linewrap": "^0.2.1"
+  }
+}
