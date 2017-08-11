@@ -72,5 +72,49 @@ function readFileSync(filePath, options) {
   }
 }
 
-module.exports.readFile = readFile;
-module.exports.readFileSync = readFileSync;
+/** Take the html returned from webserver and return array of files */
+function processDirectory(response, encoding) {
+  const html = new DOMParser().parseFromString(response, 'text/html');
+  const names = Array.from(html.querySelectorAll('td.display-name')).map(x => x.innerText.replace(/(\/|\\)$/, ''));
+  if (encoding === 'buffer') {
+    return names.map(name => Buffer.from(name));
+  } else {
+    return names;
+  }
+}
+
+/** Clone of fs.readdir but can't actually know if you read a directory */
+function readdir(dirPath, options, callback) {
+  if (typeof dirPath !== 'string' && !(dirPath instanceof String)) {
+    throw new TypeError("path must be a string");
+  }
+  if (callback === undefined) {
+    callback = options;
+    options = undefined;
+  }
+  const encoding = getEncoding(options);
+  readFile(dirPath, 'utf8', (err, res) => {
+    if (err) {
+      callback(err, null);
+    } else {
+      callback(null, processDirectory(res, encoding));
+    }
+  });
+}
+
+/** Clone of fs.readdirSync but can't actually know if you read a directory */
+function readdirSync(dirPath, options) {
+  if (typeof dirPath !== 'string' && !(dirPath instanceof String)) {
+    throw new TypeError("path must be a string");
+  }
+  const encoding = getEncoding(options);
+  const res = readFileSync(dirPath, 'utf8');
+  return  processDirectory(res, encoding);
+}
+
+module.exports = {
+  readFile: readFile,
+  readFileSync: readFileSync,
+  readdir: readdir,
+  readdirSync: readdirSync,
+};
