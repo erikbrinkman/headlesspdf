@@ -3,8 +3,10 @@ const browserify = require('browserify');
 const cdp = require('chrome-remote-interface');
 const chromeLauncher = require('chrome-launcher');
 const fs = require('fs');
+const httpServer = require('http-server');
+const portfinder = require('portfinder');
 
-/// Async function to convert stream to a string
+/** Async function to convert stream to a string */
 function streamToString(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -14,7 +16,7 @@ function streamToString(stream) {
   });
 }
 
-/// Loads chrome with remote interface
+/** Loads chrome with remote interface */
 async function prepareChrome() {
   const chrome = await chromeLauncher.launch({
     chromeFlags: [
@@ -39,35 +41,55 @@ async function prepareChrome() {
     console[evt.type](...evt.args.map(arg => arg.value ? arg.value : arg.preview));
   });
 
-  // This needs to be a local file because we need permission to load other
-  // local files
-  const frameId = await Page.navigate({
-    url: `file://${__dirname}/blank.html`
-  });
-  await Page.loadEventFired();
-
   return {
     chrome: chrome,
     protocol: protocol,
-    frameId: frameId,
   };
 }
 
-/// Load and process user script
+/** Get a free port */
+function getPort() {
+  return new Promise((resolve, reject) => {
+    portfinder.getPort((err, port) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(port);
+      }
+    });
+  });
+}
+
+/** Start a file server at the cwd */
+function startServer(server, host, port) {
+  return new Promise((resolve, reject) => {
+    server.listen(port, host, resolve);
+  });
+}
+
+/** Start a new local file server for fs */
+async function prepareFileServer() {
+  const server = httpServer.createServer();
+  const host = 'localhost';
+  const port = await getPort();
+  await startServer(server, host, port);
+  return {server: server, host: host, port: port};
+}
+
+/** Load and process user script */
 async function prepareUserScript(scriptLocation) {
   return await streamToString(browserify(scriptLocation, {
     insertGlobalVars: {
       'process': undefined,
-    }
-  }).bundle());
+    },
+    debug: true,
+  }).require(__dirname + '/fs.js', {expose: 'fs'}).bundle());
 }
 
-/// Add all style sheets in order
+/** Add all style sheets in order */
 async function addStyleSheets(CSS, frameId, styles) {
   for (const css of styles) {
-    const {
-      styleSheetId
-    } = await CSS.createStyleSheet(frameId);
+    const { styleSheetId } = await CSS.createStyleSheet(frameId);
     await CSS.setStyleSheetText({
       styleSheetId: styleSheetId,
       text: css,
@@ -75,31 +97,33 @@ async function addStyleSheets(CSS, frameId, styles) {
   }
 }
 
-/// Run users script
-async function executeUserScript(Runtime, script, argv) {
+/** Run users script */
+async function executeUserScript(Runtime, script, host, port, argv) {
   const setupScript =
     `process = {
-    argv: ${JSON.stringify(argv)},
-    cwd: () => ${JSON.stringify(process.cwd())},
-    env: ${JSON.stringify(process.env)},
-    title: 'browser',
-    browser: true,
-    version: '',
-    versions: {},
-    on: () => {},
-    addListener: () => {},
-    once: () => {},
-    off: () => {},
-    removeListener: () => {},
-    removeAllListeners: () => {},
-    emit: () => {},
-    prependListener: () => {},
-    prependOnceListener: () => {},
-    listeners: name => [],
-    binding: name => { throw new Error('process.binding is not supported'); },
-    chdir: dir => { throw new Error('process.chdir is not supported'); },
-    umask: () => 0,
-  };`
+      argv: ${JSON.stringify(argv)},
+      cwd: () => '/',
+      env: ${JSON.stringify(process.env)},
+      _host: ${JSON.stringify(host)},
+      _port: ${JSON.stringify(port)},
+      title: 'browser',
+      browser: true,
+      version: '',
+      versions: {},
+      on: () => {},
+      addListener: () => {},
+      once: () => {},
+      off: () => {},
+      removeListener: () => {},
+      removeAllListeners: () => {},
+      emit: () => {},
+      prependListener: () => {},
+      prependOnceListener: () => {},
+      listeners: name => [],
+      binding: name => { throw new Error('process.binding is not supported'); },
+      chdir: dir => { throw new Error('process.chdir is not supported'); },
+      umask: () => 0,
+    };`
   await Runtime.evaluate({
     expression: setupScript,
   });
@@ -115,39 +139,44 @@ async function executeUserScript(Runtime, script, argv) {
   }
 }
 
-/// Measure important space
+/** Measure size of html in inches */
 async function measureSize(Runtime) {
   const rectId = await Runtime.evaluate({
     expression: 'document.documentElement.getBoundingClientRect()',
   });
-  const rect = await Runtime.getProperties({
+  const {result} = await Runtime.getProperties({
     objectId: rectId.result.objectId,
     accessorPropertiesOnly: true,
   });
   return {
-    width: rect.result.filter(prop => prop.name === 'width')[0].value.value /
-      96,
-    height: rect.result.filter(prop => prop.name === 'height')[0].value.value /
-      96,
+    width: result.filter(prop => prop.name === 'width')[0].value.value / 96,
+    height: result.filter(prop => prop.name === 'height')[0].value.value / 96,
   };
 }
 
-/// The public api
+/** The public api
+ * @param {string | stream} scriptLocation Where the script to execute is located
+ * @param {object} options {styles, argv} for execution
+ */
 async function headlesspdf(scriptLocation, options) {
   const {
-    styles,
-    argv,
+    styles = [],
+    argv = [],
   } = options || {};
 
-  // Launch headless chrome, and load all files into memory
+  // Launch headless chrome, launch file server, and load all files into memory
   // TODO If an exception is thrown here, chrome and protocol might not get
   // closed...
   const [{
     chrome,
     protocol,
-    frameId,
+  }, {
+    server,
+    host,
+    port,
   }, script] = await Promise.all([
     prepareChrome(),
+    prepareFileServer(),
     prepareUserScript(scriptLocation),
   ]);
   const {
@@ -157,9 +186,16 @@ async function headlesspdf(scriptLocation, options) {
   } = protocol;
 
   try {
+    // Load initial frame loaded from same host as file server
+    const {frameId} = await Page.navigate({
+      url: `http://${host}:${port}`,
+    });
+    await Page.loadEventFired();
+    Page.setDocumentContent({frameId: frameId, html: '<html><head></head><body></body></html>'});
+
     await Promise.all([
-      executeUserScript(Runtime, script, argv || []),
-      addStyleSheets(CSS, frameId, styles || []),
+      executeUserScript(Runtime, script, host, port, argv),
+      addStyleSheets(CSS, frameId, styles),
     ]);
 
     // Generate pdf data
@@ -182,6 +218,7 @@ async function headlesspdf(scriptLocation, options) {
   } finally {
     protocol.close();
     chrome.kill();
+    server.close();
   }
 }
 
