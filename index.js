@@ -47,19 +47,6 @@ async function prepareChrome() {
   };
 }
 
-/** Get a free port */
-function getPort() {
-  return new Promise((resolve, reject) => {
-    portfinder.getPort((err, port) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(port);
-      }
-    });
-  });
-}
-
 /** Start a file server at the cwd */
 function startServer(server, host, port) {
   return new Promise((resolve, reject) => {
@@ -73,7 +60,14 @@ async function prepareFileServer() {
     showDir: 'false',
   });
   const host = 'localhost';
-  const port = await getPort();
+  // XXX There is a race condition here where we pick a "free" port before
+  // actually using it, so especially if two of these processes are started
+  // close together, one will likely request a busy port. We solve this by
+  // starting at a random port, but this is mostly a stopgap and doesn't remove
+  // the race condition. Unfortunately, it's impossible to list for the
+  // connection error, and as such, this is the only option.
+  portfinder.basePort = Math.floor(Math.random() * 16384) + 49152;
+  const port = await portfinder.getPortPromise();
   await startServer(server, host, port);
   return {server: server, host: host, port: port};
 }
