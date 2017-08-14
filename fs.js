@@ -112,9 +112,12 @@ function readdirSync(dirPath, options) {
   return  processDirectory(res, encoding);
 }
 
+// XXX Directory reading is disabled, as there was no way to set the current
+// page to point to the file server, without also loading the cwd, and
+// therefore reading from all files in the current directory.
 module.exports = {
   readFile: readFile,
   readFileSync: readFileSync,
-  readdir: readdir,
-  readdirSync: readdirSync,
+  // readdir: readdir,
+  // readdirSync: readdirSync,
 };

@@ -69,7 +69,9 @@ function startServer(server, host, port) {
 
 /** Start a new local file server for fs */
 async function prepareFileServer() {
-  const server = httpServer.createServer();
+  const server = httpServer.createServer({
+    showDir: 'false',
+  });
   const host = 'localhost';
   const port = await getPort();
   await startServer(server, host, port);

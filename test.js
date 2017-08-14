@@ -49,6 +49,8 @@ const log = console.log;
   await headlessString('require("fs").readFile("test.js", "base64", (err, res) => console.log(res));');
   assert(called, "log wasn't called");
 
+  /* XXX Directory reading is disabled until I can load the root of the file
+   * server without also reading the contents of the directory.
   // Verify we can read directories
   called = false;
   console.log = msg => {
@@ -66,6 +68,7 @@ const log = console.log;
   };
   await headlessString('require("fs").readdir(".", (err, res) => console.log(JSON.stringify(res.sort())));');
   assert(called, "log wasn't called");
+  */
 
 })().catch(err => {
   console.error(err);
