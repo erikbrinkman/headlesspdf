@@ -85,7 +85,7 @@ async function prepareUserScript(scriptLocation) {
 /** Add all style sheets in order */
 async function addStyleSheets(CSS, frameId, styles) {
   for (const css of styles) {
-    const { styleSheetId } = await CSS.createStyleSheet(frameId);
+    const { styleSheetId } = await CSS.createStyleSheet({frameId: frameId});
     await CSS.setStyleSheetText({
       styleSheetId: styleSheetId,
       text: css,
