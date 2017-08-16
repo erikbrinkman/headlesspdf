@@ -189,10 +189,9 @@ async function headlesspdf(scriptLocation, options) {
     await Page.loadEventFired();
     Page.setDocumentContent({frameId: frameId, html: '<html><head></head><body></body></html>'});
 
-    await Promise.all([
-      executeUserScript(Runtime, script, host, port, argv),
-      addStyleSheets(CSS, frameId, styles),
-    ]);
+    // add sheets and execute
+    await addStyleSheets(CSS, frameId, styles);
+    await executeUserScript(Runtime, script, host, port, argv);
 
     // Generate pdf data
     const size = await measureSize(Runtime);
