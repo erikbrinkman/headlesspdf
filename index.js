@@ -16,13 +16,56 @@ function streamToString(stream) {
   });
 }
 
+async function fetchObject(Runtime, obj) {
+  // object, function
+  if (obj.type === 'undefined') {
+    return undefined;
+  } else if (obj.type === 'number') {
+    return obj.unserializableValue ? parseFloat(obj.unserializableValue) : obj.value;
+  } else if (obj.type === 'string') {
+    return obj.value;
+  } else if (obj.type === 'boolean') {
+    return obj.value;
+  } else if (obj.type === 'function') {
+    return obj.description;
+  } else if (obj.type === 'symbol') {
+    return obj.description;
+  // TODO node, regexp, date, map, set, weakmap, weakset, iterator, generator, error, proxy, promise, typedarray
+  } else if (obj.subtype === 'null') {
+    return null;
+  } else if (obj.subtype === 'array') {
+    const { result } = await Runtime.getProperties({objectId: obj.objectId, ownProperties: true});
+    const length = result.filter(p => p.name === 'length')[0].value.value;
+    const array = new Array(length);
+    result.forEach(e => {
+      if (e.name !== '__proto__' && e.name !== 'length') {
+        array[e.name] = fetchObject(Runtime, e.value);
+      }
+    });
+    return await Promise.all(array);
+  } else if (obj.subtype === 'regexp') {
+    return obj.description;
+  } else { // object
+    const valid = {};
+    const sent = Symbol();
+    obj.preview.properties.forEach(p => valid[p.name] = sent);
+    const { result } = await Runtime.getProperties({objectId: obj.objectId});
+    const props = await Promise.all(result.filter(p => valid[p.name] === sent).map(async p => {
+      const value = await fetchObject(Runtime, p.value);
+      return await [p.name, value];
+    }));
+    const ret = {};
+    props.forEach(([name, value]) => ret[name] = value);
+    return ret;
+  }
+}
+
 /** Loads chrome with remote interface */
 async function prepareChrome() {
   const chrome = await chromeLauncher.launch({
     chromeFlags: [
       '--disable-gpu',
       '--headless',
-      '--allow-file-access-from-files',
     ]
   });
   const protocol = await cdp({
@@ -37,8 +80,14 @@ async function prepareChrome() {
   await Promise.all([Page.enable(), DOM.enable(), Runtime.enable(), CSS.enable()]);
 
   // Forward console messages, this doesn't work that well
-  Runtime.consoleAPICalled(evt => {
-    console[evt.type](...evt.args.map(arg => arg.value ? arg.value : arg.preview));
+  Runtime.consoleAPICalled(async evt => {
+    try {
+      const args = await Promise.all(evt.args.map(a => fetchObject(Runtime, a)));
+      console[evt.type](...args);
+    } catch (ex) {
+      console.log(ex);
+      process.exit(1);
+    }
   });
 
   return {
