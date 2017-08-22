@@ -10,10 +10,17 @@ const stream = require('stream');
  * them simultaneously. */
 
 async function headlessString(script) {
+  let called = false;
+  let logged = null;
+  console.log = msg => {
+    logged = msg;
+    called = true;
+  };
   const stringStream = new stream.Readable();
   stringStream.push(script);
   stringStream.push(null);
-  return await headlesspdf(stringStream);
+  await headlesspdf(stringStream);
+  return {called: called, msg: logged};
 }
 
 const testText = fs.readFileSync('test.js', 'utf8');
@@ -22,53 +29,22 @@ const dirText = JSON.stringify(fs.readdirSync('.').sort());
 const log = console.log;
 
 (async() => {
+  let result;
+
   // Verify that we can capture what we want to log
-  let called = false;
-  console.log = msg => {
-    assert.deepEqual(msg, 'test', "didn't log 'test'");
-    called = true;
-  };
-  await headlessString('console.log("test");');
-  assert(called, "log wasn't called");
+  result = await headlessString('console.log("test");');
+  assert(result.called, "log wasn't called");
+  assert.deepEqual(result.msg, 'test', "didn't log 'test'");
 
   // Verify we can read files
-  called = false;
-  console.log = msg => {
-    assert.deepEqual(msg, testText, "didn't log contents of test.js");
-    called = true;
-  };
-  await headlessString('console.log(require("fs").readFileSync("test.js", "utf8"));');
-  assert(called, "log wasn't called");
+  result = await headlessString('console.log(require("fs").readFileSync("test.js", "utf8"));');
+  assert(result.called, "log wasn't called");
+  assert.deepEqual(result.msg, testText, "didn't log contents of test.js");
 
   // Verify we can read files in base64 and asynchronously
-  called = false;
-  console.log = msg => {
-    assert.deepEqual(msg, testText64, "didn't log contents of test.js in base64");
-    called = true;
-  };
-  await headlessString('require("fs").readFile("test.js", "base64", (err, res) => console.log(res));');
-  assert(called, "log wasn't called");
-
-  /* XXX Directory reading is disabled until I can load the root of the file
-   * server without also reading the contents of the directory.
-  // Verify we can read directories
-  called = false;
-  console.log = msg => {
-    assert.deepEqual(msg, dirText, "didn't log directory contents");
-    called = true;
-  };
-  await headlessString('console.log(JSON.stringify(require("fs").readdirSync(".").sort()));');
-  assert(called, "log wasn't called");
-
-  // Verify we can read directories async
-  called = false;
-  console.log = msg => {
-    assert.deepEqual(msg, dirText, "didn't log directory contents");
-    called = true;
-  };
-  await headlessString('require("fs").readdir(".", (err, res) => console.log(JSON.stringify(res.sort())));');
-  assert(called, "log wasn't called");
-  */
+  result = await headlessString('require("fs").readFile("test.js", "base64", (err, res) => console.log(res));');
+  assert(result.called, "log wasn't called");
+  assert.deepEqual(result.msg, testText64, "didn't log contents of test.js in base64");
 
 })().catch(err => {
   console.error(err);

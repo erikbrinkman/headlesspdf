@@ -16,6 +16,21 @@ function getEncoding(options) {
   }
 }
 
+async function readFileAsync(filePath, options) {
+  if (typeof filePath !== 'string' && !(filePath instanceof String)) {
+    throw new TypeError("path must be a string");
+  }
+  const encoding = getEncoding(options);
+  const req = await fetch(`http://${process._host}:${process._port}${path.resolve(filePath)}`);
+  const buffer = await req.arrayBuffer();
+  const buff = Buffer.from(buffer);
+  if (encoding) {
+    return buff.toString(encoding);
+  } else {
+    return buff;
+  }
+}
+
 /** Clone of fs.readFile but uses XHR with local fileserver */
 function readFile(filePath, options, callback) {
   if (typeof filePath !== 'string' && !(filePath instanceof String)) {
@@ -25,30 +40,7 @@ function readFile(filePath, options, callback) {
     callback = options;
     options = undefined;
   }
-  const encoding = getEncoding(options);
-  const req = new XMLHttpRequest();
-  req.open('GET', `http://${process._host}:${process._port}${path.resolve(filePath)}`);
-  req.responseType = 'arraybuffer';
-  req.addEventListener('readystatechange', () => {
-    if (req.readyState === 4) {
-      if (req.status === 200 || req.status === 0) {
-        const buff = Buffer.from(req.response);
-        if (encoding) {
-          try {
-            callback(null, buff.toString(encoding));
-          } catch (ex) {
-            callback(ex, null);
-          }
-        } else {
-          callback(null, buff);
-        }
-      } else {
-        // FIXME Handle errors
-        callback(req.statusText, null);
-      }
-    }
-  });
-  req.send();
+  readFileAsync(filePath, options).then(res => callback(null, res), err => callback(err, null));
 }
 
 /** Clone of fs.readFileSync but uses XHR with local fileserver */
