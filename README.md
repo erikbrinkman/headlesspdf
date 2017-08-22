@@ -1,6 +1,8 @@
 Headlesspdf
 ===========
 
+[![npm](https://img.shields.io/npm/v/headlesspdf.svg?style=flat-square)](https://www.npmjs.com/package/headlesspdf)[![Travis](https://img.shields.io/travis/erikbrinkman/headlesspdf.svg?style=flat-square)](https://travis-ci.org/erikbrinkman/headlesspdf)
+
 A module for generating pdfs using node and headless chrome.
 This module allows writing code that manipulates the dom using node and then outputs the result as a pdf, using a combination of browserify and headless chrome.
 The primary intended purpose is to use this in combination with `d3` to make pretty static graphs.
