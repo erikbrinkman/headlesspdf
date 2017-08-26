@@ -60,17 +60,8 @@ async function fetchObject(Runtime, obj) {
   }
 }
 
-/** Loads chrome with remote interface */
-async function prepareChrome() {
-  const chrome = await chromeLauncher.launch({
-    chromeFlags: [
-      '--disable-gpu',
-      '--headless',
-    ]
-  });
-  const protocol = await cdp({
-    port: chrome.port
-  });
+/** Setup chrome for usage */
+async function prepareChrome(chrome, protocol) {
   const {
     Page,
     DOM,
@@ -80,7 +71,7 @@ async function prepareChrome() {
   await Promise.all([Page.enable(), DOM.enable(), Runtime.enable(), CSS.enable()]);
 
   // Forward console messages, this doesn't work that well
-  Runtime.consoleAPICalled(async evt => {
+  await Runtime.consoleAPICalled(async evt => {
     try {
       const args = await Promise.all(evt.args.map(a => fetchObject(Runtime, a)));
       console[evt.type](...args);
@@ -89,11 +80,6 @@ async function prepareChrome() {
       process.exit(1);
     }
   });
-
-  return {
-    chrome: chrome,
-    protocol: protocol,
-  };
 }
 
 /** Start a file server at the cwd */
@@ -209,28 +195,30 @@ async function headlesspdf(scriptLocation, options) {
     argv = [],
   } = options || {};
 
-  // Launch headless chrome, launch file server, and load all files into memory
-  // TODO If an exception is thrown here, chrome and protocol might not get
-  // closed...
-  const [{
-    chrome,
-    protocol,
-  }, {
-    server,
-    host,
-    port,
-  }, script] = await Promise.all([
-    prepareChrome(),
-    prepareFileServer(),
-    prepareUserScript(scriptLocation),
-  ]);
-  const {
-    Page,
-    Runtime,
-    CSS,
-  } = protocol;
-
+  let chrome, protocol, server, host, port;
   try {
+    // These are all done serially, so if one fails, the rest will be cleaned
+    chrome = await chromeLauncher.launch({
+      chromeFlags: [
+        '--disable-gpu',
+        '--headless',
+      ]
+    });
+    protocol = await cdp({
+      port: chrome.port
+    });
+    ({
+      server,
+      host,
+      port,
+    } = await prepareFileServer());
+    const [script, ] = await Promise.all([prepareUserScript(scriptLocation), prepareChrome(chrome, protocol)]);
+    const {
+      Page,
+      Runtime,
+      CSS,
+    } = protocol;
+
     // Load initial frame loaded from same host as file server
     const {frameId} = await Page.navigate({
       url: `http://${host}:${port}`,
@@ -260,9 +248,15 @@ async function headlesspdf(scriptLocation, options) {
 
     return pdf.data;
   } finally {
-    protocol.close();
-    chrome.kill();
-    server.close();
+    if (server !== undefined){
+      server.close();
+    }
+    if (protocol !== undefined) {
+      await protocol.close();
+    }
+    if (chrome !== undefined) {
+      await chrome.kill();
+    }
   }
 }
 
