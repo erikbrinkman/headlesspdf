@@ -7,7 +7,7 @@ const linewrap = require('linewrap');
 
 commander
   .name('headlesspdf')
-  .version('0.0.1')
+  .version(JSON.parse(fs.readFileSync(__dirname + '/package.json')).version)
   .option('-c, --css <css>',
     'append a stylesheet, can be specified multiple times', (v, m) => {
       m.push(v);
