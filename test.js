@@ -20,7 +20,10 @@ async function headlessString(script) {
   stringStream.push(script);
   stringStream.push(null);
   await headlesspdf(stringStream);
-  return {called: called, msg: logged};
+  return {
+    called: called,
+    msg: logged
+  };
 }
 
 const testText = fs.readFileSync('test.js', 'utf8');
@@ -37,14 +40,18 @@ const log = console.log;
   assert.deepEqual(result.msg, 'test', "didn't log 'test'");
 
   // Verify we can read files
-  result = await headlessString('console.log(require("fs").readFileSync("test.js", "utf8"));');
+  result = await headlessString(
+    'console.log(require("fs").readFileSync("test.js", "utf8"));');
   assert(result.called, "log wasn't called");
   assert.deepEqual(result.msg, testText, "didn't log contents of test.js");
 
   // Verify we can read files in base64 and asynchronously
-  result = await headlessString('require("fs").readFile("test.js", "base64", (err, res) => console.log(res));');
+  result = await headlessString(
+    'require("fs").readFile("test.js", "base64", (err, res) => console.log(res));'
+  );
   assert(result.called, "log wasn't called");
-  assert.deepEqual(result.msg, testText64, "didn't log contents of test.js in base64");
+  assert.deepEqual(result.msg, testText64,
+    "didn't log contents of test.js in base64");
 
 })().catch(err => {
   console.error(err);

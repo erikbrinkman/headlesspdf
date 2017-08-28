@@ -30,11 +30,16 @@ async function fetchObject(Runtime, obj) {
     return obj.description;
   } else if (obj.type === 'symbol') {
     return obj.description;
-  // TODO node, regexp, date, map, set, weakmap, weakset, iterator, generator, error, proxy, promise, typedarray
+    // TODO node, regexp, date, map, set, weakmap, weakset, iterator, generator, error, proxy, promise, typedarray
   } else if (obj.subtype === 'null') {
     return null;
   } else if (obj.subtype === 'array') {
-    const { result } = await Runtime.getProperties({objectId: obj.objectId, ownProperties: true});
+    const {
+      result
+    } = await Runtime.getProperties({
+      objectId: obj.objectId,
+      ownProperties: true
+    });
     const length = result.filter(p => p.name === 'length')[0].value.value;
     const array = new Array(length);
     result.forEach(e => {
@@ -49,11 +54,16 @@ async function fetchObject(Runtime, obj) {
     const valid = {};
     const sent = Symbol();
     obj.preview.properties.forEach(p => valid[p.name] = sent);
-    const { result } = await Runtime.getProperties({objectId: obj.objectId});
-    const props = await Promise.all(result.filter(p => valid[p.name] === sent).map(async p => {
-      const value = await fetchObject(Runtime, p.value);
-      return await [p.name, value];
-    }));
+    const {
+      result
+    } = await Runtime.getProperties({
+      objectId: obj.objectId
+    });
+    const props = await Promise.all(result.filter(p => valid[p.name] === sent).map(
+      async p => {
+        const value = await fetchObject(Runtime, p.value);
+        return await [p.name, value];
+      }));
     const ret = {};
     props.forEach(([name, value]) => ret[name] = value);
     return ret;
@@ -73,7 +83,8 @@ async function prepareChrome(chrome, protocol) {
   // Forward console messages, this doesn't work that well
   await Runtime.consoleAPICalled(async evt => {
     try {
-      const args = await Promise.all(evt.args.map(a => fetchObject(Runtime, a)));
+      const args = await Promise.all(evt.args.map(a => fetchObject(Runtime,
+        a)));
       console[evt.type](...args);
     } catch (ex) {
       console.log(ex);
@@ -104,7 +115,11 @@ async function prepareFileServer() {
   portfinder.basePort = Math.floor(Math.random() * 16384) + 49152;
   const port = await portfinder.getPortPromise();
   await startServer(server, host, port);
-  return {server: server, host: host, port: port};
+  return {
+    server: server,
+    host: host,
+    port: port
+  };
 }
 
 /** Load and process user script */
@@ -114,13 +129,19 @@ async function prepareUserScript(scriptLocation) {
       'process': undefined,
     },
     debug: true,
-  }).require(__dirname + '/fs.js', {expose: 'fs'}).bundle());
+  }).require(__dirname + '/fs.js', {
+    expose: 'fs'
+  }).bundle());
 }
 
 /** Add all style sheets in order */
 async function addStyleSheets(CSS, frameId, styles) {
   for (const css of styles) {
-    const { styleSheetId } = await CSS.createStyleSheet({frameId: frameId});
+    const {
+      styleSheetId
+    } = await CSS.createStyleSheet({
+      frameId: frameId
+    });
     await CSS.setStyleSheetText({
       styleSheetId: styleSheetId,
       text: css,
@@ -175,7 +196,9 @@ async function measureSize(Runtime) {
   const rectId = await Runtime.evaluate({
     expression: 'document.documentElement.getBoundingClientRect()',
   });
-  const {result} = await Runtime.getProperties({
+  const {
+    result
+  } = await Runtime.getProperties({
     objectId: rectId.result.objectId,
     accessorPropertiesOnly: true,
   });
@@ -192,7 +215,7 @@ async function measureSize(Runtime) {
 async function headlesspdf(scriptLocation, options) {
   const {
     styles = [],
-    argv = [],
+      argv = [],
   } = options || {};
 
   let chrome, protocol, server, host, port;
@@ -212,7 +235,9 @@ async function headlesspdf(scriptLocation, options) {
       host,
       port,
     } = await prepareFileServer());
-    const [script, ] = await Promise.all([prepareUserScript(scriptLocation), prepareChrome(chrome, protocol)]);
+    const [script, ] = await Promise.all([prepareUserScript(scriptLocation),
+      prepareChrome(chrome, protocol)
+    ]);
     const {
       Page,
       Runtime,
@@ -220,11 +245,16 @@ async function headlesspdf(scriptLocation, options) {
     } = protocol;
 
     // Load initial frame loaded from same host as file server
-    const {frameId} = await Page.navigate({
+    const {
+      frameId
+    } = await Page.navigate({
       url: `http://${host}:${port}`,
     });
     await Page.loadEventFired();
-    Page.setDocumentContent({frameId: frameId, html: '<html><head></head><body></body></html>'});
+    Page.setDocumentContent({
+      frameId: frameId,
+      html: '<html><head></head><body></body></html>'
+    });
 
     // add sheets and execute
     await addStyleSheets(CSS, frameId, styles);
@@ -248,7 +278,7 @@ async function headlesspdf(scriptLocation, options) {
 
     return pdf.data;
   } finally {
-    if (server !== undefined){
+    if (server !== undefined) {
       server.close();
     }
     if (protocol !== undefined) {

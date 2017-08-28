@@ -21,7 +21,8 @@ async function readFileAsync(filePath, options) {
     throw new TypeError("path must be a string");
   }
   const encoding = getEncoding(options);
-  const req = await fetch(`http://${process._host}:${process._port}${path.resolve(filePath)}`);
+  const req = await fetch(
+    `http://${process._host}:${process._port}${path.resolve(filePath)}`);
   const buffer = await req.arrayBuffer();
   const buff = Buffer.from(buffer);
   if (encoding) {
@@ -40,7 +41,8 @@ function readFile(filePath, options, callback) {
     callback = options;
     options = undefined;
   }
-  readFileAsync(filePath, options).then(res => callback(null, res), err => callback(err, null));
+  readFileAsync(filePath, options).then(res => callback(null, res), err =>
+    callback(err, null));
 }
 
 /** Clone of fs.readFileSync but uses XHR with local fileserver */
@@ -54,7 +56,9 @@ function readFileSync(filePath, options) {
       `only utf8 encoding is allowed for synchronous reads got ${encoding}`);
   }
   const req = new XMLHttpRequest();
-  req.open('GET', `http://${process._host}:${process._port}${path.resolve(filePath)}`, false);
+  req.open('GET',
+    `http://${process._host}:${process._port}${path.resolve(filePath)}`,
+    false);
   req.send();
   if (req.status === 200 || req.status === 0) {
     return req.responseText;
@@ -67,7 +71,8 @@ function readFileSync(filePath, options) {
 /** Take the html returned from webserver and return array of files */
 function processDirectory(response, encoding) {
   const html = new DOMParser().parseFromString(response, 'text/html');
-  const names = Array.from(html.querySelectorAll('td.display-name')).map(x => x.innerText.replace(/(\/|\\)$/, ''));
+  const names = Array.from(html.querySelectorAll('td.display-name')).map(x => x
+    .innerText.replace(/(\/|\\)$/, ''));
   if (encoding === 'buffer') {
     return names.map(name => Buffer.from(name));
   } else {
@@ -101,7 +106,7 @@ function readdirSync(dirPath, options) {
   }
   const encoding = getEncoding(options);
   const res = readFileSync(dirPath, 'utf8');
-  return  processDirectory(res, encoding);
+  return processDirectory(res, encoding);
 }
 
 // XXX Directory reading is disabled, as there was no way to set the current
