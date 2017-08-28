@@ -56,3 +56,4 @@ To Do
   Not sure if this is possible without breaking modules, and it's probably not that important to make non-relative.
 - Add protection options, e.g. don't give access to files, reveal absolute path, environment, send files over ssl, etc.
 - Add process.stdin by reading the whole thing and passing it as a string in setup.
+- There seems to be trouble getting sourcemap support working via chrome remote protocol, this should be fixed.
