@@ -110,8 +110,10 @@ async function prepareFileServer() {
   // actually using it, so especially if two of these processes are started
   // close together, one will likely request a busy port. We solve this by
   // starting at a random port, but this is mostly a stopgap and doesn't remove
-  // the race condition. Unfortunately, it's impossible to list for the
+  // the race condition. Unfortunately, it's impossible to listen for the
   // connection error, and as such, this is the only option.
+  // TODO Maybe it's possible to try starting it up with a timeout and then
+  // checking to see if the server is still up?
   portfinder.basePort = Math.floor(Math.random() * 16384) + 49152;
   const port = await portfinder.getPortPromise();
   await startServer(server, host, port);
@@ -124,6 +126,8 @@ async function prepareFileServer() {
 
 /** Load and process user script */
 async function prepareUserScript(scriptLocation) {
+  // FIXME Debug doesn't seem to debug exactly. Line numbers are still listed
+  // as being in the anonymous megafile these are all concatenated into.
   return await streamToString(browserify(scriptLocation, {
     insertGlobalVars: {
       'process': undefined,
@@ -135,6 +139,9 @@ async function prepareUserScript(scriptLocation) {
 }
 
 /** Add all style sheets in order */
+// TODO For some reason, this doesn't modify the document, it only modifies the
+// style as far the execution is concerned. Hopefully it's possible to actually
+// update in the document itself so that writes of the HTML preserve the style.
 async function addStyleSheets(CSS, frameId, styles) {
   for (const css of styles) {
     const {
@@ -151,6 +158,8 @@ async function addStyleSheets(CSS, frameId, styles) {
 
 /** Run users script */
 async function executeUserScript(Runtime, script, host, port, argv) {
+  // Most of these defaults were copied from browserify, some are added for our
+  // own purposes.
   const setupScript =
     `process = {
       argv: ${JSON.stringify(argv)},
