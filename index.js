@@ -50,6 +50,8 @@ async function fetchObject(Runtime, obj) {
     return await Promise.all(array);
   } else if (obj.subtype === 'regexp') {
     return obj.description;
+  } else if (obj.preview === undefined) {
+    return {};
   } else { // object
     const valid = {};
     const sent = Symbol();
