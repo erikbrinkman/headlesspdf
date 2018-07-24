@@ -1,6 +1,8 @@
 Headlesspdf
 ===========
 
+This has been deprecated in favor of [principia](https://github.com/erikbrinkman/principia).
+
 [![npm](https://img.shields.io/npm/v/headlesspdf.svg?style=flat-square)](https://www.npmjs.com/package/headlesspdf)
 [![Travis](https://img.shields.io/travis/erikbrinkman/headlesspdf.svg?style=flat-square)](https://travis-ci.org/erikbrinkman/headlesspdf)
 
